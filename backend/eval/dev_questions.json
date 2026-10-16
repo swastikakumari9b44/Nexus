@@ -1,0 +1,29 @@
+{
+  "_note": "Development dataset, hand-written against the Zava employee_handbook.pdf (11 pages). Small by design: it is a regression/calibration aid, not a benchmark.",
+  "answerable": [
+    {"q": "How often are performance reviews conducted?", "pages": [4], "terms": ["annual"]},
+    {"q": "Who conducts the performance review and what do they discuss?", "pages": [4], "terms": ["supervisor"]},
+    {"q": "Do employees get a written summary of their performance review?", "pages": [4], "terms": ["written summary"]},
+    {"q": "What industry is the company in and what does it make?", "pages": [3], "terms": ["aerospace"]},
+    {"q": "What does the workplace safety program include?", "pages": [5], "terms": ["hazard"]},
+    {"q": "What should I do if I witness workplace violence?", "pages": [6], "terms": ["supervisor"]},
+    {"q": "Does the company sell or rent personal information?", "pages": [7], "terms": ["will not sell"]},
+    {"q": "How do I contact the Privacy Officer?", "pages": [7, 8], "terms": ["privacy@"]},
+    {"q": "What is the compliance hotline number?", "pages": [8, 9], "terms": ["555-1212"]},
+    {"q": "Is retaliation against whistleblowers allowed?", "pages": [9], "terms": ["prohibited"]},
+    {"q": "How often must employees complete data security training?", "pages": [10], "terms": ["annually"]},
+    {"q": "Must customer data be encrypted?", "pages": [9], "terms": ["encrypted"]},
+    {"q": "What are the password requirements?", "pages": [10], "terms": ["complex"]},
+    {"q": "Can I report a violation anonymously?", "pages": [9], "terms": ["anonymous"]},
+    {"q": "What job roles exist at the company?", "pages": [10, 11], "terms": ["Chief Executive Officer"]}
+  ],
+  "out_of_scope": [
+    "How many vacation days do I get each year?",
+    "What is the company's 401k match?",
+    "What is the capital of France?",
+    "What is the dress code policy?",
+    "How much is the health insurance premium?",
+    "What is the parental leave policy?",
+    "Who won the cricket world cup?"
+  ]
+}
