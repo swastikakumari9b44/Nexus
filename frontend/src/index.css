@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { font-feature-settings: "cv11", "ss01"; }
+:focus-visible { outline: 2px solid #7b8cff; outline-offset: 2px; border-radius: 6px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #26325a; border-radius: 8px; border: 2px solid #0b1020; }
+.md p { margin: 0 0 .6rem; } .md p:last-child { margin-bottom: 0; }
+.md ol, .md ul { margin: .4rem 0 .6rem 1.2rem; } .md ol { list-style: decimal; } .md ul { list-style: disc; }
+.md strong { color: #fff; font-weight: 600; } .md em { color: #94a3b8; }
+.md code { font-family: theme(fontFamily.mono); font-size: .85em; background: #1b2540; padding: .1rem .3rem; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
