@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -26,7 +26,13 @@ async function healthy(timeoutMs = 90_000) {
 }
 async function kill(p: ChildProcess) {
   const exited = new Promise((r) => p.once("exit", r));
-  p.kill("SIGKILL");                                    // hard crash: no graceful shutdown
+  if (process.platform === "win32" && p.pid) {
+    // On Windows a venv's python.exe is a launcher that starts the real interpreter as a child, and
+    // kill() would only end the launcher. Kill the whole tree so the port is really released.
+    spawnSync("taskkill", ["/pid", String(p.pid), "/T", "/F"]);
+  } else {
+    p.kill("SIGKILL");                                  // hard crash: no graceful shutdown
+  }
   await exited;
 }
 

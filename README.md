@@ -9,7 +9,7 @@ Its defining behaviour is **context interleaving**: ask a handbook question in t
 
 **Stack:** Python 3.10+ · FastAPI (async) · LangGraph `StateGraph` + `AsyncSqliteSaver` · ChromaDB · pypdf · React 18 + Vite + TypeScript + Tailwind + lucide-react · SQLite · Groq / Gemini (optional) 
 
-> **Read this first — honest status.** Everything marked ✅ below was executed and observed while building this repo: 121 backend tests, 21 frontend unit tests, **19 real-browser (Chromium) end-to-end tests**, live server runs against the real PDF, and a from-scratch clone-and-run check. Items under [Known limitations & unverified behaviour](#7-known-limitations--unverified-behaviour) were **not** verified — chiefly real Groq/Gemini calls, the `fastembed` model, Firefox/Safari, and anything on Windows. The AI Engineering Log contains only problems that actually occurred.
+> **Read this first — honest status.** Everything marked ✅ below was executed and observed on **Linux** while building this repo (nothing was run on Windows): 121 backend tests, 21 frontend unit tests, **19 real-browser (Chromium) end-to-end tests**, live server runs against the real PDF, and a from-scratch clone-and-run check. Items under [Known limitations & unverified behaviour](#7-known-limitations--unverified-behaviour) were **not** verified — chiefly real Groq/Gemini calls, the `fastembed` model, Firefox/Safari, and anything on Windows. The AI Engineering Log contains only problems that actually occurred.
 
 ---
 
@@ -181,7 +181,7 @@ npx playwright install chromium && npm run e2e                           # 19 re
 
 ## 5. Verification artifacts (actually executed)
 
-**Test results (final, all executed — also re-run in a fresh `git clone`):** backend `121 passed` with `RUN_NETWORK_TESTS=1`; `119 passed, 2 skipped` offline. Frontend: strict `tsc` clean (app + e2e), `21 passed` (Vitest + jsdom), production build OK, `npm audit --omit=dev` → 0. **Real browser: `19 passed` (Playwright + Chromium 153, 2.7 min)** — details in section 8. Coverage by type
+**Test results (final, all executed — also re-run in a fresh `git clone`):** backend `121 passed` with `RUN_NETWORK_TESTS=1`; `119 passed, 2 skipped` offline. Frontend: strict `tsc` clean (app + e2e), `21 passed` (Vitest + jsdom), production build OK, `npm audit --omit=dev` → 0. **Real browser: `19 passed` (Playwright + Chromium 153, 2.7 min, original development run; independently re-run on Linux with Chromium 131 in the final audit — chronology in section 8)**. Coverage by type
 
 **Live transcript** (real handbook, `uvicorn`, dev mode, hash embedder — `python -m scripts.demo_dialogue`):
 ```
@@ -224,8 +224,8 @@ Implemented & tested: UUID-validated `thread_id` (no path/SQL surface; thread is
 
 ## 7. Known limitations & unverified behaviour
 
-* ❌ **Real Groq/Gemini calls were never made** (no network access to them here). Request/response shapes are unit-tested against mocked `httpx` transports only; model ids may need updating.
-* ❌ **`fastembed` was not run** (Hugging Face is unreachable from the build sandbox). Its default threshold 0.40 is a guess — run the evaluation and set `RAG_MIN_SCORE`.
+* ❌ **Real Groq/Gemini calls were never made** (no network access to them here; the final audit also had no credentials configured and could not reach either API). Request/response shapes are unit-tested against mocked `httpx` transports only; model ids may need updating.
+* ❌ **`fastembed` was not run** (Hugging Face is unreachable from the build sandbox; the final audit re-tried and `python -m scripts.ingest --download` failed with `ValueError: Could not load model BAAI/bge-small-en-v1.5 from any source`). Its default threshold 0.40 is a guess — run the evaluation and set `RAG_MIN_SCORE`.
 * ⚠ **Browser coverage = Chromium only** (headless, desktop-emulated viewports). Not run on Firefox/WebKit, a real touch device, or a real Windows/macOS desktop. **Nothing was run on Windows or macOS**; the PowerShell commands are written by inspection (paths use `pathlib`, file I/O is UTF-8, scripts reconfigure stdout) but unexecuted. In the build sandbox Playwright's own browser download was blocked, so a separately-sourced Chromium binary was used via `PW_CHROMIUM_PATH`; on your machine `npx playwright install chromium` is the supported path (unverified here).
 * ⚠ **E2E uses the offline embedder and the dev (extractive) answerer** for determinism; it verifies integration behaviour, not LLM answer quality. SSE chunks are paced by the E2E harness (`E2E_SSE_DELAY_MS`) so the live status can be observed; the events themselves are the real ones.
 * ⚠ Screenshots show a fallback system font: Google Fonts (Inter) was unreachable from the build sandbox, so they differ slightly from what you'll see online.
@@ -251,12 +251,14 @@ npm run e2e                             # builds the UI, starts backend (:8000) 
 cd frontend
 npm ci
 npx playwright install chromium
-$env:NEXUS_PYTHON = "..\backend\.venv\Scripts\python.exe"   # the venv created in the backend setup
+$env:NEXUS_PYTHON = (Resolve-Path ..\backend\.venv\Scripts\python.exe).Path   # absolute path of the backend venv's python
 npm run e2e
 ```
 Behind a proxy that blocks Playwright's download, point at any local Chromium instead: `PW_CHROMIUM_PATH=/path/to/chromium npm run e2e`. Screenshots are (re)written to `docs/screenshots/` on every run.
 
 **Result (executed, final code, also in a fresh clone): `19 passed`.**
+
+**Chronology of the browser evidence.** (1) Original development run: `19 passed` on Chromium 153 (a separately-sourced binary via `PW_CHROMIUM_PATH`, see §10 item 18). (2) First audit pass: `npx playwright install chromium` failed (download blocked), so the 19 tests were *not* re-run at that point. (3) Later in the audit: a Chromium 131.0.6778.0 binary was extracted from the npm package `@sparticuz/chromium@131` and used via `PW_CHROMIUM_PATH`; `npm run e2e` → **`19 passed` in 2.6 min, exit 0** on Linux (full log: `docs/verification/playwright-linux-2026-10-18.log`; other suites: `docs/verification/linux-suites-2026-10-18.log`; two earlier attempts of this run were aborted by the audit's own shell and are not counted). (4) After two Windows-portability edits to the e2e harness (quoted interpreter path in `playwright.config.ts`; process-tree kill on Windows in `restart.spec.ts`), only the two affected specs were re-run on Linux (`SIGKILL/restart` and `live node status`): 2 passed. The full 19 were not re-run after those edits. **Not run on Windows, macOS, Firefox or WebKit; the Windows-specific edit has never executed on Windows.** The run rewrites `docs/screenshots/`; the committed screenshots were restored afterwards, so they are from the original run, not the audit run.
 
 | # | Scenario (real browser + real backend) | Result |
 |---|---|---|
@@ -362,7 +364,7 @@ Every claim below was checked by running code. *Implemented* = exists in the sou
 
 ## 10. AI Engineering Log
 
-**AI tools used:** Claude (Anthropic, via the claude.ai chat interface with a code sandbox) generated and iterated the code in this repository. *[Add any other tools you personally used, e.g. Copilot/Cursor — I can only attest to what happened in this build.]*
+**AI tools used:** Claude (Anthropic, via the claude.ai chat interface with a code sandbox) generated and iterated the code in this repository. **TODO (author, before submission):** list any other tools you personally used (e.g. Copilot/Cursor). Only Claude is documented in the build history.
 
 **Real defects found during this build, and how they were found/fixed** (none invented):
 
@@ -390,10 +392,11 @@ Every claim below was checked by running code. *Implemented* = exists in the sou
 16. **Overclaiming UI copy:** "Can't reach the backend" and "Not delivered" both asserted facts the client could not know after a lost response. Reworded to what is actually known.
 17. **Several of my own test mistakes** surfaced and were fixed rather than loosened: a helper that pressed Enter during an in-flight turn (the composer correctly ignored it), `getByText` matching the composer's textarea (React mirrors its value into text content), an ESM `__dirname`, an assertion written for the wrong booking step, and a pointer file clobbered by a second server instance. A `.env.*` ignore rule hid a tracked-file requirement until the fresh-clone run.
 18. **Environment:** Playwright's browser CDN was blocked in the build sandbox, so I used a separately-sourced Chromium binary through `PW_CHROMIUM_PATH` (documented above); my first "clean install" silently installed nothing because `time` is not a builtin in `sh`. Both were re-run properly before drawing conclusions.
+19. **Final audit session (harness mistakes, no product defect found):** the audit re-ran every suite on an unchanged tree and found no new product bug. Its own mistakes were: starting uvicorn with `app.main:app` instead of the documented `app.main:create_app --factory` (HTTP 500, README was right); a leftover server holding the port so the corrected one could not bind; and `pkill -f <pattern>` matching and killing the audit's own shell, which looked like a hung test run until it was re-run properly.
 
-*No LangGraph checkpointer serialization failure occurred in this build (`TypedDict` state with plain dicts/lists and `AIMessage.additional_kwargs` round-tripped through SQLite). [If you hit one on your machine, log it here.]*
+*No LangGraph checkpointer serialization failure occurred in this build (`TypedDict` state with plain dicts/lists and `AIMessage.additional_kwargs` round-tripped through SQLite).*
 
-*[Your observations — add what you personally diagnosed and changed.]*
+**TODO (author, before submission):** add what you personally diagnosed and changed, including any checkpointer serialization failure you hit on your own machine. This cannot be reconstructed from the repository history.
 
 ## 11. Future improvements
 

@@ -1,0 +1,33 @@
+# Linux test-suite log (final audit). Python 3.12.3, Node v22.22.2, 2026-10-17T20:52Z sandbox clock. NOT Windows.
+# Commands run from the repo root; outputs trimmed to the summary lines.
+
+$ pip check
+No broken requirements found.
+exit=0
+
+$ python -m pytest -q
+..............................................s..                        [100%]
+119 passed, 2 skipped in 6.93s
+
+$ RUN_NETWORK_TESTS=1 python -m pytest -q
+.................................................                        [100%]
+121 passed in 9.08s
+
+$ npm run typecheck
+> tsc -b --noEmit
+
+exit=0
+
+$ npm run typecheck:e2e
+> tsc -p e2e/tsconfig.json --noEmit
+
+
+$ npm test
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+
+$ npm run build
+dist/index.html                   0.82 kB │ gzip:  0.46 kB
+dist/assets/index-CacHC2Tq.css   18.97 kB │ gzip:  4.68 kB
+dist/assets/index-ecM_TGAS.js   306.72 kB │ gzip: 95.46 kB
+✓ built in 5.24s

@@ -21,7 +21,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `${py} -m scripts.e2e_server --port 8000`,
+      command: `"${py}" -m scripts.e2e_server --port 8000`,   // quoted: the interpreter path may contain spaces on Windows
       cwd: "../backend",
       url: "http://127.0.0.1:8000/api/health",
       timeout: 180_000,
