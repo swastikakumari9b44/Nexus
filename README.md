@@ -9,7 +9,7 @@ Its defining behaviour is **context interleaving**: ask a handbook question in t
 
 **Stack:** Python 3.10+ · FastAPI (async) · LangGraph `StateGraph` + `AsyncSqliteSaver` · ChromaDB · pypdf · React 18 + Vite + TypeScript + Tailwind + lucide-react · SQLite · Groq / Gemini (optional) 
 
-> **Read this first — honest status.** Everything marked ✅ below was executed and observed while building this repo (119 backend tests, 20 frontend tests, live server runs against the real PDF including a restart, a production frontend build). Items under [Known limitations & unverified behaviour](#known-limitations--unverified-behaviour) were **not** verified — chiefly real Groq/Gemini calls, the `fastembed` model, and real-browser/visual behaviour of the UI (the UI logic is covered by jsdom tests, not a browser). The AI Engineering Log contains only problems that actually occurred.
+> **Read this first — honest status.** Everything marked ✅ below was executed and observed while building this repo: 121 backend tests, 21 frontend unit tests, **19 real-browser (Chromium) end-to-end tests**, live server runs against the real PDF, and a from-scratch clone-and-run check. Items under [Known limitations & unverified behaviour](#7-known-limitations--unverified-behaviour) were **not** verified — chiefly real Groq/Gemini calls, the `fastembed` model, Firefox/Safari, and anything on Windows. The AI Engineering Log contains only problems that actually occurred.
 
 ---
 
@@ -25,7 +25,7 @@ Its defining behaviour is **context interleaving**: ask a handbook question in t
 | Multi-turn booking: name, email, slot | `graph/nodes/booking.py`, `services/booking_service.py` | ✅ |
 | Context interleaving | tested in `tests/test_graph.py`, `tests/test_api.py` | ✅ |
 | `POST /api/chat`, `GET /api/slots` | `api/routes/api.py` | ✅ |
-| React chat UI: messages, thread ID, status | `frontend/src` | ✅ 20 jsdom tests + build; ⚠ never opened in a real browser |
+| React chat UI: messages, thread ID, status | `frontend/src` | ✅ 21 unit tests + 19 real-Chromium E2E tests + screenshots; ⚠ Chromium only, Windows unverified |
 | README + AI Engineering Log | this file | ✅ |
 | *Bonus* SSE streaming + live node badge | `POST /api/chat/stream`, `StatusBadge` | ✅ node-level progress (**not** token streaming) |
 | *Bonus* prompt-injection / leak guardrails | `nlu.LEAK`, `answerers.validate_citations`, tests | ✅ (heuristic, see limits) |
@@ -168,19 +168,20 @@ If the embedding model can't be downloaded: `EMBEDDING_PROVIDER=hash`, then re-r
 **Tests & evaluation**
 ```bash
 cd backend
-pytest -q                                   # 117 offline tests + 2 skipped (temp DBs, no network, mocked providers)
-RUN_NETWORK_TESTS=1 pytest -q               # + downloads the real PDF: 119 tests
+pytest -q                                   # 119 offline tests + 2 skipped (temp DBs, no network, mocked providers)
+RUN_NETWORK_TESTS=1 pytest -q               # + downloads the real PDF: 121 tests
 python -m scripts.evaluate --json eval/results.json    # RAG evaluation on eval/dev_questions.json
 python -m scripts.demo_dialogue             # replays the PDF's sample dialogue against a running server
 
 cd ../frontend
-npm run typecheck && npm test && npm run build     # strict tsc, 20 Vitest/jsdom tests, production build
+npm run typecheck && npm run typecheck:e2e && npm test && npm run build   # strict tsc, 21 Vitest/jsdom tests, production build
+npx playwright install chromium && npm run e2e                           # 19 real-browser tests (see section 8)
 ```
 **Real-provider integration check (manual — not run here):** set `LLM_PROVIDER=groq` (or `gemini`) + key, start the server, run `python -m scripts.evaluate --answerer configured` and `python -m scripts.demo_dialogue`; `GET /api/health` should show `"llm_mode":"groq"`, and answers should lack the "Dev mode" footer.
 
 ## 5. Verification artifacts (actually executed)
 
-**Test results (Phase 2 audit, all executed):** backend `119 passed` with `RUN_NETWORK_TESTS=1`; `117 passed, 2 skipped` offline. Frontend: strict `tsc` clean, `20 passed` (Vitest + jsdom), production build OK. Coverage by type — *unit:* booking service, chunking, retrieval, citation validation, NLU/routing, provider request/response shapes (mocked `httpx`); *integration (in-process):* graph + SQLite checkpointer, FastAPI `TestClient` (flows, restart, isolation, CORS, SSE, security); *live:* real PDF download+ingest, real `uvicorn` run below. **Frontend:** hook and component tests run against a mocked `fetch`/SSE (restore, send, interrupted-stream recovery, idempotent retry, duplicate-submit and restore races, validation, drawer focus, XSS-inertness). These are **jsdom tests, not browser tests**: layout, responsiveness and real focus/scroll behaviour remain unverified.
+**Test results (final, all executed — also re-run in a fresh `git clone`):** backend `121 passed` with `RUN_NETWORK_TESTS=1`; `119 passed, 2 skipped` offline. Frontend: strict `tsc` clean (app + e2e), `21 passed` (Vitest + jsdom), production build OK, `npm audit --omit=dev` → 0. **Real browser: `19 passed` (Playwright + Chromium 153, 2.7 min)** — details in section 8. Coverage by type
 
 **Live transcript** (real handbook, `uvicorn`, dev mode, hash embedder — `python -m scripts.demo_dialogue`):
 ```
@@ -215,7 +216,7 @@ After killing and restarting `uvicorn`: `GET /api/threads/<id>` → 8 messages, 
 
 *Error analysis.* (a) 4 answerable questions were wrongly **declined** (industry, password requirements, anonymous reporting, job roles): their best chunk scored below the floor or no sentence covered half the question's terms — the lexical embedder can't bridge vocabulary ("anonymously" vs "anonymous reporting"). (b) 2 answered questions lacked the expected phrase: the extractive answerer quoted a nearby sentence. (c) In-scope and out-of-scope similarity scores **overlap** for this embedder (min in-scope top-1 0.081 vs max out-of-scope 0.115), so a threshold alone can't separate them — hence the second gate. Chunk sizes 300–800 were swept; none improved separability, so the spec's 800/150 was kept. The dataset is small and hand-written by the developer: treat it as a regression/calibration aid, not a benchmark.
 
-**Manual UI checklist (not yet done by me — please capture screenshots):** empty state; FAQ with citation chip → source drawer; booking form validation (bad name/email); slot buttons; confirm → reference card; FAQ mid-booking keeps the panel at step 2; refresh restores thread; "New conversation" gives a new thread ID; stop the backend → "Unreachable" status + retry banner; mobile width (menu + booking drawer); keyboard: Enter / Shift+Enter, Esc closes drawers.
+**Manual checks still worth doing by you:** the UI in Firefox/Safari and on a real phone (touch, virtual keyboard); real Groq/Gemini answers; Windows run. Everything else on the old manual checklist is now automated (section 8).
 
 ## 6. Security
 
@@ -225,14 +226,85 @@ Implemented & tested: UUID-validated `thread_id` (no path/SQL surface; thread is
 
 * ❌ **Real Groq/Gemini calls were never made** (no network access to them here). Request/response shapes are unit-tested against mocked `httpx` transports only; model ids may need updating.
 * ❌ **`fastembed` was not run** (Hugging Face is unreachable from the build sandbox). Its default threshold 0.40 is a guess — run the evaluation and set `RAG_MIN_SCORE`.
-* ❌ **The UI was never opened in a real browser** (no browser available; jsdom tests + production build only). **Nothing was run on Windows or macOS**; the PowerShell commands are written by inspection (paths use `pathlib`, file I/O is UTF-8, scripts reconfigure stdout) but unexecuted.
+* ⚠ **Browser coverage = Chromium only** (headless, desktop-emulated viewports). Not run on Firefox/WebKit, a real touch device, or a real Windows/macOS desktop. **Nothing was run on Windows or macOS**; the PowerShell commands are written by inspection (paths use `pathlib`, file I/O is UTF-8, scripts reconfigure stdout) but unexecuted. In the build sandbox Playwright's own browser download was blocked, so a separately-sourced Chromium binary was used via `PW_CHROMIUM_PATH`; on your machine `npx playwright install chromium` is the supported path (unverified here).
+* ⚠ **E2E uses the offline embedder and the dev (extractive) answerer** for determinism; it verifies integration behaviour, not LLM answer quality. SSE chunks are paced by the E2E harness (`E2E_SSE_DELAY_MS`) so the live status can be observed; the events themselves are the real ones.
+* ⚠ Screenshots show a fallback system font: Google Fonts (Inter) was unreachable from the build sandbox, so they differ slightly from what you'll see online.
 * ⚠ **Dependency advisories** (see Phase 2 audit): `chromadb` has 5 server-mode advisories with no published fix; 13 npm advisories exist, all in dev tooling (`npm audit --omit=dev` → 0).
 * No token-level streaming (SSE reports node completion). No Docker. No auth or rate limiting (a per-process `asyncio` lock serialises turns per thread, so this targets a single worker; multi-worker needs a distributed lock). Injection defence is heuristic (regex + prompt hygiene), not a guarantee.
 * Rule-based NLU is English-only and brittle to unusual phrasing; names with digits/no surname are rejected by design.
 * Dev mode answers are extractive quotes, sometimes imprecise (see error analysis).
 * The secondary benefits PDF is not ingested.
 
-## 8. Phase 2 audit (evidence-based)
+## 8. Real-browser end-to-end tests (Phase 3)
+
+**What runs.** `frontend/e2e/*.spec.ts` (Playwright) drive the **production build** of the React app in real Chromium against the **real backend**: FastAPI + LangGraph + SQLite checkpointer + booking DB + Chroma + the real handbook PDF, each run in a fresh temporary data directory (`backend/scripts/e2e_server.py`). Determinism comes from configuration only (`EMBEDDING_PROVIDER=hash`, `LLM_PROVIDER=dev`); the backend is never mocked. For failure scenarios the tests let the request reach the real server (so it really commits) and then drop the response in the browser (`route.fetch()` + `route.abort()`), or really `SIGKILL` and restart the backend process. Every test automatically fails on uncaught browser errors, console errors, unexpected failed API requests or HTTP 4xx/5xx (tests that break the network on purpose must declare it).
+
+**Commands**
+```bash
+cd frontend
+npm ci
+npx playwright install chromium         # one-time browser download
+npm run e2e                             # builds the UI, starts backend (:8000) + UI (:4173/:4174), runs 19 tests
+```
+```powershell
+# Windows PowerShell (not executed on Windows by me)
+cd frontend
+npm ci
+npx playwright install chromium
+$env:NEXUS_PYTHON = "..\backend\.venv\Scripts\python.exe"   # the venv created in the backend setup
+npm run e2e
+```
+Behind a proxy that blocks Playwright's download, point at any local Chromium instead: `PW_CHROMIUM_PATH=/path/to/chromium npm run e2e`. Screenshots are (re)written to `docs/screenshots/` on every run.
+
+**Result (executed, final code, also in a fresh clone): `19 passed`.**
+
+| # | Scenario (real browser + real backend) | Result |
+|---|---|---|
+| 1 | The 13-step critical journey: open → new conversation → book → name/email → **FAQ interrupt with real citation** → booking intact → slot → confirm → **reference equals the persisted booking** (API + slot removed from `/api/slots`) → refresh restores everything → new conversation is isolated → switching back restores the booking | ✅ |
+| 2 | Assessment sample dialogue (name + email + FAQ in one message) | ✅ |
+| 3 | Invalid email (chat + form validation), empty/whitespace message sends nothing | ✅ |
+| 4 | Connection dropped **before** the server sees the request → error + Retry re-sends the **same** `client_message_id`; processed once | ✅ |
+| 5 | Response **lost after the booking committed** → UI asks the server, adopts the committed booking, shows **no failure**; exactly one booking | ✅ (mutation-checked: fails if reconciliation is disabled) |
+| 6 | Response lost **and** the status lookup also fails → honest wording ("may or may not have been processed"), no reference invented; Retry returns the **same** reference, still exactly one booking | ✅ |
+| 7-8 | Slot taken by another conversation before selection / between selection and confirmation → refused, nothing booked, re-offer, user completes with another slot | ✅ |
+| 9-10 | Typing + Enter while in flight is ignored and the text kept; double-click Confirm → one request, one booking | ✅ |
+| 11 | Backend **SIGKILLed mid-booking and restarted** on the same data dir → UI shows "Unreachable", then resumes at the same step/slot, completes; booking survives a second crash | ✅ |
+| 12-13 | Live status: badge stages and `router ✓ / rag ✓` chips follow the real SSE events; header trace equals the backend's `trace`; booking turns show "Preparing booking", not the RAG stage | ✅ |
+| 14 | HTML/Markdown injection in a message is inert (no elements, no script execution, no `javascript:` links) | ✅ |
+| 15 | Mobile drawer keeps focus and typed text across a real health-poll re-render; Esc closes and returns focus | ✅ (jsdom-mutation-checked too) |
+| 16 | Desktop 1440 / tablet 820 / mobile 390: no horizontal overflow (incl. a 140-char unbroken token), correct chrome (sidebar vs menu drawer, booking aside vs drawer) | ✅ |
+| 17 | Keyboard: Enter sends, Shift+Enter newline | ✅ |
+| 18-19 | CORS in a real browser: cross-origin build (`VITE_API_BASE`) works from the allowed origin; a disallowed origin is blocked and the UI says "Unreachable" | ✅ |
+
+**Independent database check** (SQLite read directly after a full run, not via the UI or API): 8 bookings = exactly the 8 the tests made (the two lost-response scenarios created **one** each); no duplicate slots, references or idempotency keys; the partial unique index exists.
+
+**Defects the browser found and that were fixed** (jsdom/pytest had missed all of them):
+
+| Sev | Defect | Fix |
+|---|---|---|
+| High | **Source panel showed the wrong passage.** Two retrieved chunks from the same page collapsed to whichever came last, so the "exact text the answer was grounded in" was not; snippets were also cut at 500 chars | citations now map to the chunk that best matches the cited text; full chunk shown; regression tests (written first, failed first) |
+| High | A long unbroken token (URL/word) made the chat **overflow the viewport by 447 px** | `min-w-0` + `overflow-wrap:anywhere`; checked at 3 viewports |
+| Med | After a lost response the UI said *"Can't reach the NEXUS backend"* although the server was up and had committed | send failures now say the request *may or may not have been processed; retrying is safe* |
+| Med | One failed send marked the backend offline and **disabled the composer until the next 15 s health poll** | immediate health re-check |
+| Med | Red under-message label *"Not delivered"* contradicted the banner (outcome unknown) | renamed *"Delivery unconfirmed"* |
+| Low | LLM status dot was **red** for the intentional dev mode | amber (warning) level; booking badge no longer wraps |
+| Harness | `.gitignore` swallowed `frontend/.env.direct` (needed by the CORS test) — caught by the fresh-clone run; the E2E pointer file was overwritten by the restart test's second backend | un-ignored; pointer written by the primary server only |
+
+**Screenshots** (real captures from the run above, `docs/screenshots/`):
+
+| | |
+|---|---|
+| ![empty](docs/screenshots/01-empty-state-desktop.png) 01 empty state | ![collecting](docs/screenshots/02-booking-collecting.png) 02 booking: details |
+| ![faq](docs/screenshots/03-faq-citation-booking-intact.png) 03 FAQ mid-booking, booking intact | ![source](docs/screenshots/04-source-panel.png) 04 source details |
+| ![confirm](docs/screenshots/05-confirm-step.png) 05 confirmation step | ![done](docs/screenshots/06-booking-confirmed.png) 06 confirmed + reference |
+| ![restored](docs/screenshots/07-restored-after-refresh.png) 07 restored after refresh | ![err](docs/screenshots/08-error-with-retry.png) 08 dropped connection + Retry |
+| ![lost](docs/screenshots/09-recovered-after-lost-response.png) 09 recovered after a lost response | ![mobile](docs/screenshots/10-layout-mobile.png) 10 mobile |
+| ![tablet](docs/screenshots/10-layout-tablet.png) 10 tablet | ![menu](docs/screenshots/11-mobile-menu.png) 11 mobile menu |
+| ![drawer](docs/screenshots/12-mobile-booking-drawer.png) 12 mobile booking drawer | ![desktop](docs/screenshots/10-layout-desktop.png) 10 desktop |
+
+**Reproducibility (fresh `git clone`, new virtualenv, bash):** pinned `pip install -r requirements.txt` (`pip check` clean) → `python -m scripts.ingest --download --rebuild` from nothing (11 pages → 27 chunks) → backend tests `119 passed, 2 skipped` / `121 passed` → evaluation reproduces the same metrics → `npm ci` → typechecks → `21` unit tests → build → `npm run e2e` `19 passed`. Generated files (`backend/data`, `.env`, `dist*`, `e2e-results`) are git-ignored and absent from the clone.
+
+## 9. Phase 2 audit (evidence-based)
 
 Every claim below was checked by running code. *Implemented* = exists in the source; *unit/integration* = covered by automated tests; *live* = observed on a real `uvicorn` against the real PDF; *unverified* = not run.
 
@@ -283,12 +355,12 @@ Every claim below was checked by running code. *Implemented* = exists in the sou
 | Criterion (weight) | Evidence-backed | Not backed by evidence |
 |---|---|---|
 | LangGraph architecture (35%) | real `StateGraph`, conditional router, typed state, async SQLite checkpointer, interleaving, restart persistence, concurrency tests | LLM-assisted routing is deliberately absent (rule-based router) |
-| FastAPI backend (25%) | async routes, schemas, locks, idempotency, byte-level size limit, timeouts, safe errors, SSE, 119 tests | auth/rate limiting; multi-worker locking; real LLM providers |
-| React frontend (20%) | thread restore/new thread, SSE node status, booking flow, citation drawer, error/retry/reconcile, 20 jsdom tests | **no real-browser run**, responsive layout and visuals unverified |
+| FastAPI backend (25%) | async routes, schemas, locks, idempotency, byte-level size limit, timeouts, safe errors, SSE, 121 tests, exercised through a real browser | auth/rate limiting; multi-worker locking; real LLM providers |
+| React frontend (20%) | thread restore/new thread, SSE node status, booking flow, citation drawer, error/retry/reconcile; 21 unit tests; **19 real-browser tests** incl. lost-response recovery, SIGKILL/restart, CORS, mobile/tablet/desktop layouts, drawer focus, XSS-inertness; real screenshots | Chromium only; Firefox/Safari/real devices and Windows unverified; no visual-regression or accessibility-audit tooling (axe) run |
 | RAG & booking (15%) | page-accurate ingestion, citations, honest fallback, transactional booking; lexical-mode evaluation | semantic-embedder and LLM-mode quality unmeasured; benefits PDF not ingested |
-| Documentation (5%) | setup (bash + PowerShell), traces, honest limits | screenshots not yet captured |
+| Documentation (5%) | setup (bash + PowerShell), real screenshots, traces, honest limits, clone-and-run verified (bash) | PowerShell commands unexecuted |
 
-## 9. AI Engineering Log
+## 10. AI Engineering Log
 
 **AI tools used:** Claude (Anthropic, via the claude.ai chat interface with a code sandbox) generated and iterated the code in this repository. *[Add any other tools you personally used, e.g. Copilot/Cursor — I can only attest to what happened in this build.]*
 
@@ -303,7 +375,7 @@ Every claim below was checked by running code. *Implemented* = exists in the sou
 7. **Test-expectation errors (mine, not product bugs):** I mis-computed the minimum-lead slot boundary in one assertion (11:00 is exactly 2 h after the fixed 09:00 clock) — the code was right, the test was fixed.
 8. **Document vs. assumption.** The assessment's sample dialogue ("twice a year", PTO/benefits questions) does not match the actual handbook ("annually"; no PTO content). Surfaced by reading the PDF text before writing eval questions.
 
-**Phase 2 audit — additional real defects (see table in section 8 for fixes):**
+**Phase 2 audit — additional real defects (see the table in section 9 for fixes):**
 
 9. **A passing test that proved nothing.** My first `Drawer` focus-stealing test passed even with the bug reintroduced (it re-clicked the input after re-rendering, resetting focus). I only noticed because I mutation-checked it; the rewritten test fails with the bug and passes with the fix.
 10. **Wrong exception semantics assumed.** I assumed raising from an ASGI `receive` wrapper would yield a 413; FastAPI converts body-read exceptions into a generic 400. Found by the failing regression test; fixed by sending the 413 from the middleware itself.
@@ -311,10 +383,18 @@ Every claim below was checked by running code. *Implemented* = exists in the sou
 12. **Optimistic UI claim.** The UI declared a turn "failed" on any dropped stream, which can contradict a completed server-side booking; fixed with server reconciliation.
 13. **Harness mistakes (not product bugs):** I mistook a dead background server (processes don't survive between sandbox calls) for a server defect, and a `pkill -f` pattern killed my own shell; both were re-verified properly before drawing conclusions.
 
+**Phase 3 — real-browser testing: additional real defects (see section 8):**
+
+14. **The "exact text" claim was false.** The source panel showed a neighbouring chunk, because I keyed retrieved passages by `(source, page)` and two chunks on one page collapsed to the last one. No unit test caught it (my fixtures had one chunk per page); the first browser run did. Fixed test-first.
+15. **Layout bug invisible to jsdom:** a 140-character token overflowed the viewport by 447 px.
+16. **Overclaiming UI copy:** "Can't reach the backend" and "Not delivered" both asserted facts the client could not know after a lost response. Reworded to what is actually known.
+17. **Several of my own test mistakes** surfaced and were fixed rather than loosened: a helper that pressed Enter during an in-flight turn (the composer correctly ignored it), `getByText` matching the composer's textarea (React mirrors its value into text content), an ESM `__dirname`, an assertion written for the wrong booking step, and a pointer file clobbered by a second server instance. A `.env.*` ignore rule hid a tracked-file requirement until the fresh-clone run.
+18. **Environment:** Playwright's browser CDN was blocked in the build sandbox, so I used a separately-sourced Chromium binary through `PW_CHROMIUM_PATH` (documented above); my first "clean install" silently installed nothing because `time` is not a builtin in `sh`. Both were re-run properly before drawing conclusions.
+
 *No LangGraph checkpointer serialization failure occurred in this build (`TypedDict` state with plain dicts/lists and `AIMessage.additional_kwargs` round-tripped through SQLite). [If you hit one on your machine, log it here.]*
 
 *[Your observations — add what you personally diagnosed and changed.]*
 
-## 10. Future improvements
+## 11. Future improvements
 
 Ingest the benefits PDF as a second document with a document filter; token streaming; semantic reranking and calibrated thresholds for `fastembed`/LLM; LLM-assisted intent classification behind the deterministic validators; auth + rate limiting + per-user bookings; Postgres checkpointer for multi-worker; Docker/compose; Playwright UI tests; calendar integration; cancel/reschedule endpoints.
