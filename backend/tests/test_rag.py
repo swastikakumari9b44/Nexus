@@ -128,3 +128,24 @@ def test_real_handbook_ingests_and_page_numbers_match(tmp_path, settings):
     q = "How often are performance reviews conducted?"
     ans = asyncio.run(ExtractiveAnswerer().answer(q, r.search(q)))
     assert "annual" in ans.lower() and "page 4" in ans
+
+
+def test_citation_maps_to_the_chunk_that_contains_the_quoted_text():
+    """Regression (found by the real-browser E2E): two retrieved chunks on the same page collapsed to
+    whichever came last, so the source panel showed text the answer never used."""
+    mk = lambda i, t, s: Passage(i, "employee_handbook.pdf", 4, t, s)
+    p1 = mk("c00", "Performance reviews are conducted annually and are an important part of career development.", 0.20)
+    p2 = mk("c01", "Your supervisor discusses goals and feedback. Reviews are a two-way dialogue between managers.", 0.35)
+    clean, cited = validate_citations(
+        "Performance reviews are conducted annually [Source: employee_handbook.pdf, page 4]", [p1, p2])
+    assert [c.id for c in cited] == ["c00"]
+    clean, cited = validate_citations(
+        "Reviews are a two-way dialogue [Source: employee_handbook.pdf, page 4]", [p1, p2])
+    assert [c.id for c in cited] == ["c01"]
+
+
+def test_citation_snippet_is_not_truncated_below_chunk_size():
+    long = ("x " * 20 + "key fact here. ") + ("filler " * 90)
+    p = [Passage("c", "d.pdf", 1, long, 0.9)]
+    from app.graph.nodes import rag as rag_mod
+    assert rag_mod.SNIPPET_CHARS >= 800

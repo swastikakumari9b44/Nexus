@@ -161,23 +161,38 @@ _CITE = re.compile(r"\[Source:\s*([^,\]]+),\s*page\s*(\d+)\]", re.I)
 def validate_citations(text: str, passages: list[Passage]) -> tuple[str, list[Passage]]:
     """Strip any citation the model made up; guarantee citations come from retrieval.
 
-    Returns (clean_text, passages_actually_cited). If the model cited nothing valid,
-    the top retrieved passage is cited so every answer carries a real page number.
+    For each valid `[Source: x, page N]` marker the cited passage is the retrieved chunk ON THAT PAGE
+    that best matches the text the marker supports (several chunks can share a page). If the model
+    cited nothing valid, the top retrieved passage is cited so every answer carries a real page number.
     """
-    allowed = {(p.source, p.page): p for p in passages}
-    cited: dict[tuple[str, int], Passage] = {}
-
-    def repl(m: re.Match) -> str:
+    by_page: dict[tuple[str, int], list[Passage]] = {}
+    for p in passages:
+        by_page.setdefault((p.source, p.page), []).append(p)
+    cited: dict[str, Passage] = {}
+    out: list[str] = []
+    last = 0
+    for m in _CITE.finditer(text):
         key = (m.group(1).strip(), int(m.group(2)))
-        if key in allowed:
-            cited[key] = allowed[key]
-            return m.group(0)
-        return ""  # fabricated source/page: remove
-
-    clean = _CITE.sub(repl, text).strip()
-    clean = re.sub(r"[ ]{2,}", " ", clean)
+        segment = text[last:m.start()]
+        if key in by_page:
+            best = _best_passage(segment, by_page[key])
+            cited.setdefault(best.id, best)
+            out.append(text[last:m.end()])
+        else:
+            out.append(text[last:m.start()])          # fabricated source/page: drop the marker
+        last = m.end()
+    out.append(text[last:])
+    clean = re.sub(r"[ ]{2,}", " ", "".join(out)).strip()
     if not cited:
         top = passages[0]
-        cited[(top.source, top.page)] = top
+        cited[top.id] = top
         clean += f" [Source: {top.source}, page {top.page}]"
     return clean, list(cited.values())
+
+
+def _best_passage(segment: str, candidates: list[Passage]) -> Passage:
+    """Pick the candidate whose text shares the most content terms with the cited segment."""
+    seg = set(tokenize(_CITE.sub("", segment)[-400:]))
+    if len(candidates) == 1 or not seg:
+        return max(candidates, key=lambda p: p.score)
+    return max(candidates, key=lambda p: (len(seg & set(tokenize(p.text))) / len(seg), p.score))

@@ -33,8 +33,8 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
     <section aria-label="Booking" className="rounded-2xl border border-ink-700 bg-ink-800 p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-white"><CalendarCheck className="h-4 w-4 text-brand-400" aria-hidden /> {booking.appointment_type}</h2>
-        {idx >= 0 && idx < 3 && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">In progress</span>}
-        {idx === 3 && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">Booked</span>}
+        {idx >= 0 && idx < 3 && <span className="whitespace-nowrap rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">In progress</span>}
+        {idx === 3 && <span className="whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">Booked</span>}
       </div>
 
       {idx >= 0 && (

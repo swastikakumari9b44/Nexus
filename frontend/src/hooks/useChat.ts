@@ -74,7 +74,9 @@ export function useChat() {
       const err = e as ApiError;
       if (err.retryable && (await reconcile(thread, clientMessageId))) return;
       setMessages((m) => m.map((x) => (x.clientMessageId === clientMessageId ? { ...x, failed: true } : x)));
-      setError(err.message ?? "Something went wrong."); if (err.status === 0) setOnline(false);
+      setError(err.message ?? "Something went wrong.");
+      // A dropped send doesn't prove the backend is down: re-check instead of locking the composer for a poll interval.
+      if (err.status === 0) getHealth().then((h) => { setHealth(h); setOnline(true); }).catch(() => setOnline(false));
     } finally { inFlight.current = false; setSending(false); setProgress([]); }
   }, [reconcile]);
 

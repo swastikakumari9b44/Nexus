@@ -17,12 +17,12 @@ export function MessageBubble({ m, onCite }: { m: UiMessage; onCite: (c: Citatio
       <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isUser ? "bg-ink-700 text-slate-300" : "bg-brand-500/15 text-brand-400"}`}>
         {isUser ? <User className="h-4 w-4" aria-hidden /> : <Bot className="h-4 w-4" aria-hidden />}
       </div>
-      <div className={`group max-w-[85%] ${isUser ? "items-end" : ""}`}>
+      <div className={`group min-w-0 max-w-[85%] ${isUser ? "items-end" : ""}`}>
         <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser ? "rounded-tr-sm bg-brand-600 text-white" : "rounded-tl-sm border border-ink-700 bg-ink-800 text-slate-200 shadow-card"} ${m.failed ? "ring-1 ring-red-500/60" : ""}`}>
           {/* react-markdown escapes raw HTML by default (no rehype-raw): untrusted text can't inject markup. */}
-          <div className="md"><ReactMarkdown>{text}</ReactMarkdown></div>
+          <div className="md break-words [overflow-wrap:anywhere]"><ReactMarkdown>{text}</ReactMarkdown></div>
         </div>
-        {m.failed && <p className="mt-1 flex items-center gap-1 text-xs text-red-400"><AlertCircle className="h-3 w-3" aria-hidden /> Not delivered</p>}
+        {m.failed && <p className="mt-1 flex items-center gap-1 text-xs text-red-400"><AlertCircle className="h-3 w-3" aria-hidden /> Delivery unconfirmed</p>}
         {!isUser && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {m.citations.map((c) => (

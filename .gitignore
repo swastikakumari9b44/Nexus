@@ -21,3 +21,8 @@ frontend/dist/
 .idea/
 .vscode/
 *.tsbuildinfo
+dist-direct/
+e2e-results/
+playwright-report/
+backend/data/
+!frontend/.env.direct

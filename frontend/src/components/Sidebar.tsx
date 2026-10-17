@@ -2,11 +2,14 @@ import { Check, Copy, Hexagon, Plus } from "lucide-react";
 import { useState } from "react";
 import type { Health } from "../lib/types";
 
-function Dot({ ok, label, detail }: { ok: boolean; label: string; detail?: string }) {
+type Level = "ok" | "warn" | "bad";
+const DOT: Record<Level, string> = { ok: "bg-emerald-400", warn: "bg-amber-400", bad: "bg-red-400" };
+
+function Dot({ level, label, detail }: { level: Level; label: string; detail: string }) {
   return (
     <li className="flex items-start justify-between gap-2 text-xs">
-      <span className="flex items-center gap-2 text-slate-400"><span className={`mt-1 h-2 w-2 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"}`} aria-hidden />{label}</span>
-      <span className="text-right text-slate-300">{detail ?? (ok ? "OK" : "Down")}</span>
+      <span className="flex items-center gap-2 text-slate-400"><span className={`mt-1 h-2 w-2 rounded-full ${DOT[level]}`} aria-hidden />{label}</span>
+      <span className="text-right text-slate-300">{detail}</span>
     </li>
   );
 }
@@ -35,11 +38,11 @@ export function Sidebar({ threadId, health, online, disabled, onNew }:
       <div>
         <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">System status</p>
         <ul className="space-y-2 rounded-xl border border-ink-700 bg-ink-900 p-3" aria-label="System status">
-          <Dot ok={online} label="API" detail={online ? "Connected" : "Unreachable"} />
+          <Dot level={online ? "ok" : "bad"} label="API" detail={online ? "Connected" : "Unreachable"} />
           {health && <>
-            <Dot ok={health.index_ready} label="Knowledge index" detail={health.index_ready ? "Ready" : "Not ingested"} />
-            <Dot ok={!dev} label="LLM" detail={dev ? "Dev mode (no LLM)" : health.llm_mode} />
-            <Dot ok label="Timezone" detail={health.timezone} />
+            <Dot level={health.index_ready ? "ok" : "bad"} label="Knowledge index" detail={health.index_ready ? "Ready" : "Not ingested"} />
+            <Dot level={dev ? "warn" : "ok"} label="LLM" detail={dev ? "Dev mode (no LLM)" : health.llm_mode} />
+            <Dot level="ok" label="Timezone" detail={health.timezone} />
           </>}
         </ul>
         {dev && <p className="mt-2 text-[11px] leading-snug text-amber-300/80">Dev mode returns extractive answers from the handbook. Set LLM_PROVIDER in .env for real LLM answers.</p>}

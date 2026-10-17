@@ -41,7 +41,8 @@ export async function sendMessage(
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError("Can't reach the NEXUS backend. Check that it is running.", 0, true);
+    // The request may have reached the server before the connection dropped: say so, don't claim it is down.
+    throw new ApiError("The connection dropped before a reply arrived. Your request may or may not have been processed; retrying is safe.", 0, true);
   }
   if (!res.ok || !res.body) throw await parseError(res);
 
@@ -68,7 +69,7 @@ export async function sendMessage(
   } catch (e) {
     if (e instanceof ApiError || (e as Error).name === "AbortError") throw e;
     // A dropped connection mid-stream: the turn may still have completed on the server.
-    throw new ApiError("The connection was interrupted before the reply arrived.", 0, true);
+    throw new ApiError("The connection dropped before the reply finished. Your request may or may not have been processed; retrying is safe.", 0, true);
   }
   if (!final) throw new ApiError("The connection closed before a reply arrived.", 0, true);
   return final;

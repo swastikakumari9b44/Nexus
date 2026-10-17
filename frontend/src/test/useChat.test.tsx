@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useChat } from "../hooks/useChat";
 import { IDLE_BOOKING, type BookingView } from "../lib/types";
 import { finalPayload, installFetch, json, sse, streamResponse } from "./mockServer";
@@ -99,14 +99,25 @@ describe("useChat", () => {
     expect(result.current.messages[0].failed).toBe(false);
   });
 
-  it("reports an unreachable backend and offline status", async () => {
+  it("a dropped send is described honestly and does NOT mark a healthy backend offline", async () => {
     installFetch({ chat: () => { throw new TypeError("Failed to fetch"); } });
     const { result } = renderHook(() => useChat());
     await waitFor(() => expect(result.current.loadingThread).toBe(false));
     await act(async () => { result.current.send("hi"); });
     await waitFor(() => expect(result.current.sending).toBe(false));
-    expect(result.current.error).toMatch(/Can't reach/);
-    expect(result.current.online).toBe(false);
+    expect(result.current.error).toMatch(/may or may not have been processed/);
+    expect(result.current.error).not.toMatch(/can't reach|not created|failed to book/i);
+    await waitFor(() => expect(result.current.online).toBe(true));        // health re-check says the backend is fine
+  });
+
+  it("marks the backend offline only when it is actually unreachable", async () => {
+    installFetch({});
+    const { result } = renderHook(() => useChat());
+    await waitFor(() => expect(result.current.loadingThread).toBe(false));
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    await act(async () => { result.current.send("hi"); });
+    await waitFor(() => expect(result.current.sending).toBe(false));
+    await waitFor(() => expect(result.current.online).toBe(false));
   });
 
   it("New conversation creates a distinct thread with clean state", async () => {

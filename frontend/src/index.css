@@ -12,3 +12,6 @@ body { font-feature-settings: "cv11", "ss01"; }
 .md strong { color: #fff; font-weight: 600; } .md em { color: #94a3b8; }
 .md code { font-family: theme(fontFamily.mono); font-size: .85em; background: #1b2540; padding: .1rem .3rem; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+.md pre { overflow-x: auto; max-width: 100%; }
+.md table { display: block; overflow-x: auto; max-width: 100%; }

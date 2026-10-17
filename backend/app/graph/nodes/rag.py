@@ -7,6 +7,8 @@ from app.llm.answerers import INSUFFICIENT, validate_citations
 
 log = logging.getLogger(__name__)
 
+SNIPPET_CHARS = 1200   # chunks are <= ~800 chars: show the whole passage the answer was grounded in
+
 FALLBACK = ("I couldn't find that in the Employee Handbook, so I don't want to guess. "
             "Try rephrasing, or ask about a policy the handbook covers.")
 
@@ -45,7 +47,7 @@ def make_rag(deps: GraphDeps):
 
         clean, cited = validate_citations(raw, passages)
         parts.append(clean)
-        citations = [{"source": p.source, "page": p.page, "snippet": p.text[:500],
+        citations = [{"source": p.source, "page": p.page, "snippet": p.text[:SNIPPET_CHARS],
                       "score": round(p.score, 3), "chunk_id": p.id} for p in cited]
         return {**base, "reply_parts": parts, "citations": citations}
 
