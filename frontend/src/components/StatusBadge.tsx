@@ -26,14 +26,14 @@ export function StatusBadge({ sending, progress, lastTrace }: { sending: boolean
         <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/10 px-2.5 py-1 text-xs font-medium text-brand-400">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {stage(progress)}
         </span>
-        <span className="hidden gap-1 font-mono text-[11px] text-slate-500 sm:flex">
+        <span className="hidden gap-1 font-mono text-[11px] text-slate-400 sm:flex">
           {progress.map((p, i) => <span key={i} className="rounded bg-ink-700 px-1.5 py-0.5 text-slate-300">{p.node} ✓</span>)}
         </span>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-500" title="Graph nodes executed for the last turn (reported by the backend)">
+    <div className="flex items-center gap-2 text-xs text-slate-400" title="Graph nodes executed for the last turn (reported by the backend)">
       <Workflow className="h-3.5 w-3.5" aria-hidden />
       {lastTrace.length ? <span className="font-mono">{lastTrace.map((n) => NODE_LABEL[n] ?? n).join(" → ")}</span> : <span>Idle</span>}
     </div>

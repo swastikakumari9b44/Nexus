@@ -50,13 +50,13 @@ export default function App() {
             <Composer onSend={(t) => c.send(t)} disabled={c.sending || c.loadingThread} offline={!c.online} />
           </div>
           <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-ink-700 bg-ink-850 p-4 xl:block">
-            <BookingPanel booking={c.booking} busy={c.sending} onSend={c.send} />
+            <BookingPanel booking={c.booking} busy={c.sending || c.loadingThread} onSend={c.send} />
           </aside>
         </div>
       </main>
 
       <Drawer open={bookingOpen} title="Booking" onClose={() => setBookingOpen(false)}>
-        <BookingPanel booking={c.booking} busy={c.sending} onSend={(t, s) => { c.send(t, s); }} />
+        <BookingPanel booking={c.booking} busy={c.sending || c.loadingThread} onSend={c.send} />
       </Drawer>
       <Drawer open={!!source} title="Source details" onClose={() => setSource(null)}>{source && <SourcePanel citation={source} />}</Drawer>
     </div>

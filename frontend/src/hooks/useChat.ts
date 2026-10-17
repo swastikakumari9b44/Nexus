@@ -18,19 +18,20 @@ export function useChat() {
   const [health, setHealth] = useState<Health | null>(null);
   const [online, setOnline] = useState(true);
   const inFlight = useRef(false);
+  const loadingRef = useRef(true);
   const tid = useRef(threadId);
   tid.current = threadId;
 
   // Restore the conversation after refresh / thread switch.
   useEffect(() => {
     let cancelled = false;
-    setLoadingThread(true); setError(null);
+    setLoadingThread(true); loadingRef.current = true; setError(null);
     getThread(threadId).then((t) => {
       if (cancelled) return;
       setMessages(t.messages.map((m, i) => ({ key: m.id ?? `h${i}`, role: m.role, content: m.content, citations: m.citations })));
       setBooking(t.booking); setLastTrace([]);
     }).catch((e: ApiError) => { if (!cancelled) { setError(e.message); setMessages([]); setBooking(IDLE_BOOKING); } })
-      .finally(() => { if (!cancelled) setLoadingThread(false); });
+      .finally(() => { if (!cancelled) { setLoadingThread(false); loadingRef.current = false; } });
     return () => { cancelled = true; };
   }, [threadId]);
 
@@ -38,6 +39,20 @@ export function useChat() {
   useEffect(() => {
     const poll = () => getHealth().then((h) => { setHealth(h); setOnline(true); }).catch(() => setOnline(false));
     poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
+  }, []);
+
+  /** After a dropped connection the turn may still have completed on the server. Ask the server
+   *  (the source of truth) instead of telling the user it failed. Returns true if it was adopted. */
+  const reconcile = useCallback(async (thread: string, clientMessageId: string): Promise<boolean> => {
+    try {
+      const t = await getThread(thread);
+      const i = t.messages.findIndex((m) => m.id === clientMessageId);
+      if (i < 0 || t.messages[i + 1]?.role !== "assistant") return false;
+      if (tid.current !== thread) return true;
+      setMessages(t.messages.map((m, k) => ({ key: m.id ?? `h${k}`, role: m.role, content: m.content, citations: m.citations })));
+      setBooking(t.booking); setError(null); setOnline(true);
+      return true;
+    } catch { return false; }
   }, []);
 
   const run = useCallback(async (text: string, clientMessageId: string, slotId?: string) => {
@@ -57,13 +72,14 @@ export function useChat() {
     } catch (e) {
       if (tid.current !== thread) return;
       const err = e as ApiError;
+      if (err.retryable && (await reconcile(thread, clientMessageId))) return;
       setMessages((m) => m.map((x) => (x.clientMessageId === clientMessageId ? { ...x, failed: true } : x)));
       setError(err.message ?? "Something went wrong."); if (err.status === 0) setOnline(false);
     } finally { inFlight.current = false; setSending(false); setProgress([]); }
-  }, []);
+  }, [reconcile]);
 
   const send = useCallback((text: string, slotId?: string) => {
-    const t = text.trim(); if (!t || inFlight.current) return;
+    const t = text.trim(); if (!t || inFlight.current || loadingRef.current) return;
     const id = uid();
     setMessages((m) => [...m, { key: `u-${id}`, role: "user", content: t, citations: [], clientMessageId: id, slotId }]);
     void run(t, id, slotId);

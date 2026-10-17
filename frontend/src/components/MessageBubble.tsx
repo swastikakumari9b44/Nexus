@@ -32,7 +32,7 @@ export function MessageBubble({ m, onCite }: { m: UiMessage; onCite: (c: Citatio
                 <FileText className="h-3 w-3 text-brand-400" aria-hidden /> {c.source} · p.{c.page}
               </button>
             ))}
-            <button onClick={copy} aria-label="Copy response" className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-slate-500 opacity-0 transition hover:text-slate-200 focus:opacity-100 group-hover:opacity-100">
+            <button onClick={copy} aria-label="Copy response" className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-slate-400 opacity-0 transition hover:text-slate-200 focus:opacity-100 group-hover:opacity-100">
               {copied ? <><Check className="h-3 w-3" aria-hidden /> Copied</> : <><Copy className="h-3 w-3" aria-hidden /> Copy</>}
             </button>
           </div>

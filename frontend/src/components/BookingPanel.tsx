@@ -1,5 +1,5 @@
 import { CalendarCheck, Check, CheckCircle2, Clock, Copy, Loader2, Mail, User, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { EMAIL_RE, NAME_RE } from "../lib/format";
 import type { BookingView } from "../lib/types";
 
@@ -11,6 +11,7 @@ interface Props { booking: BookingView; busy: boolean; onSend: (text: string, sl
 
 export function BookingPanel({ booking, busy, onSend }: Props) {
   const idx = stepIndex(booking.status);
+  const uid = useId();           // two panels can be mounted at once (desktop aside + mobile drawer)
   const [name, setName] = useState(booking.name ?? "");
   const [email, setEmail] = useState(booking.email ?? "");
   const [touched, setTouched] = useState(false);
@@ -26,7 +27,7 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
     if (!booking.reference) return;
     try { await navigator.clipboard.writeText(booking.reference); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ }
   };
-  const input = "w-full rounded-lg border bg-ink-900 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-500";
+  const input = "w-full rounded-lg border bg-ink-900 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:border-brand-500";
 
   return (
     <section aria-label="Booking" className="rounded-2xl border border-ink-700 bg-ink-800 p-4 shadow-card">
@@ -40,10 +41,10 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
         <ol className="mb-4 flex items-center gap-1" aria-label="Booking progress">
           {STEPS.map((s, i) => (
             <li key={s} className="flex flex-1 items-center gap-1" aria-current={i === idx ? "step" : undefined}>
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${i < idx || idx === 3 ? "bg-emerald-500 text-ink-950" : i === idx ? "bg-brand-500 text-white" : "bg-ink-700 text-slate-500"}`}>
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${i < idx || idx === 3 ? "bg-emerald-500 text-ink-950" : i === idx ? "bg-brand-500 text-white" : "bg-ink-700 text-slate-400"}`}>
                 {i < idx || idx === 3 ? <Check className="h-3 w-3" aria-hidden /> : i + 1}
               </span>
-              <span className={`hidden text-[11px] sm:inline ${i === idx ? "text-white" : "text-slate-500"}`}>{s}</span>
+              <span className={`hidden text-[11px] sm:inline ${i === idx ? "text-white" : "text-slate-400"}`}>{s}</span>
               {i < STEPS.length - 1 && <span className={`h-px flex-1 ${i < idx ? "bg-emerald-500/60" : "bg-ink-700"}`} />}
             </li>
           ))}
@@ -61,16 +62,16 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
       {booking.status === "collecting" && (
         <form onSubmit={submitDetails} noValidate className="space-y-3">
           <div>
-            <label htmlFor="b-name" className="mb-1 block text-xs font-medium text-slate-400">Full name</label>
-            <div className="relative"><User className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" aria-hidden />
-              <input id="b-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Chen" maxLength={80}
+            <label htmlFor={`${uid}-name`} className="mb-1 block text-xs font-medium text-slate-400">Full name</label>
+            <div className="relative"><User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <input id={`${uid}-name`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Chen" maxLength={80}
                 aria-invalid={touched && !nameOk} className={`${input} ${touched && !nameOk ? "border-red-500/70" : "border-ink-600"}`} /></div>
             {touched && !nameOk && <p className="mt-1 text-xs text-red-400">Enter your first and last name.</p>}
           </div>
           <div>
-            <label htmlFor="b-email" className="mb-1 block text-xs font-medium text-slate-400">Work email</label>
-            <div className="relative"><Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" aria-hidden />
-              <input id="b-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="alex.chen@company.com" maxLength={254}
+            <label htmlFor={`${uid}-email`} className="mb-1 block text-xs font-medium text-slate-400">Work email</label>
+            <div className="relative"><Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <input id={`${uid}-email`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="alex.chen@company.com" maxLength={254}
                 aria-invalid={touched && !emailOk} className={`${input} ${touched && !emailOk ? "border-red-500/70" : "border-ink-600"}`} /></div>
             {touched && !emailOk && <p className="mt-1 text-xs text-red-400">Enter a valid email address.</p>}
           </div>
@@ -83,7 +84,7 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
       {booking.status === "awaiting_slot" && (
         <div>
           <p className="mb-2 text-xs text-slate-400">{booking.name} · {booking.email}</p>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Available slots (IST)</p>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Available slots (IST)</p>
           <div className="grid gap-2">
             {booking.offered_slots.map((s) => (
               <button key={s.id} disabled={busy} onClick={() => onSend(s.label, s.id)}
@@ -98,9 +99,9 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
       {booking.status === "awaiting_confirmation" && booking.selected_slot && (
         <div>
           <dl className="mb-3 space-y-1.5 rounded-lg border border-ink-600 bg-ink-900 p-3 text-sm">
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">When</dt><dd className="text-right text-white">{booking.selected_slot.label}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Name</dt><dd className="text-white">{booking.name}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Email</dt><dd className="truncate text-white">{booking.email}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-400">When</dt><dd className="text-right text-white">{booking.selected_slot.label}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-400">Name</dt><dd className="text-white">{booking.name}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-400">Email</dt><dd className="truncate text-white">{booking.email}</dd></div>
           </dl>
           <div className="flex gap-2">
             <button disabled={busy} onClick={() => onSend("yes")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-ink-950 hover:bg-emerald-400 disabled:opacity-50">
@@ -127,7 +128,7 @@ export function BookingPanel({ booking, busy, onSend }: Props) {
       )}
 
       {idx >= 0 && idx < 3 && (
-        <button disabled={busy} onClick={() => onSend("cancel")} className="mt-3 flex items-center gap-1 text-xs text-slate-500 hover:text-red-400 disabled:opacity-50">
+        <button disabled={busy} onClick={() => onSend("cancel")} className="mt-3 flex items-center gap-1 text-xs text-slate-400 hover:text-red-400 disabled:opacity-50">
           <XCircle className="h-3.5 w-3.5" aria-hidden /> Cancel booking
         </button>
       )}

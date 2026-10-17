@@ -12,11 +12,11 @@ export function SourcePanel({ citation }: { citation: Citation }) {
         </div>
       </div>
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Retrieved passage</p>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Retrieved passage</p>
         {/* Plain text node: untrusted document text is never interpreted as HTML or Markdown. */}
         <p className="whitespace-pre-wrap rounded-xl border border-ink-700 bg-ink-900 p-3 text-sm leading-relaxed text-slate-300">{citation.snippet}</p>
       </div>
-      <p className="text-xs text-slate-500">This is the exact text the answer was grounded in, with its page number from the indexed PDF.</p>
+      <p className="text-xs text-slate-400">This is the exact text the answer was grounded in, with its page number from the indexed PDF.</p>
     </div>
   );
 }

@@ -19,13 +19,13 @@ export function Composer({ onSend, disabled, offline }: { onSend: (t: string) =>
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }}
             placeholder={offline ? "Backend unreachable…" : "Ask about the handbook or book a Performance Review"}
-            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed" />
+            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed" />
           <button onClick={submit} disabled={disabled || offline || !text.trim()} aria-label="Send message"
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40">
             <SendHorizonal className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div className="mt-1.5 flex justify-between px-1 text-[11px] text-slate-500">
+        <div className="mt-1.5 flex justify-between px-1 text-[11px] text-slate-400">
           <span>Enter to send · Shift+Enter for a new line</span>
           {text.length > MAX * 0.8 && <span className={text.length >= MAX ? "text-red-400" : ""}>{text.length}/{MAX}</span>}
         </div>

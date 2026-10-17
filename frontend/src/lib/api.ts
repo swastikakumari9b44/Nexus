@@ -49,20 +49,26 @@ export async function sendMessage(
   const decoder = new TextDecoder();
   let buf = "";
   let final: ChatResponse | null = null;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buf.indexOf("\n\n")) >= 0) {
-      const block = buf.slice(0, idx); buf = buf.slice(idx + 2);
-      const ev = /^event: (.+)$/m.exec(block)?.[1]; const data = /^data: (.+)$/m.exec(block)?.[1];
-      if (!ev || !data) continue;
-      const payload = JSON.parse(data);
-      if (ev === "node") onNode(payload.node, payload.intent ?? null);
-      else if (ev === "final") final = payload as ChatResponse;
-      else if (ev === "error") throw new ApiError(payload.detail ?? "The request failed.", 500, true);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const block = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        const ev = /^event: (.+)$/m.exec(block)?.[1]; const data = /^data: (.+)$/m.exec(block)?.[1];
+        if (!ev || !data) continue;
+        const payload = JSON.parse(data);
+        if (ev === "node") onNode(payload.node, payload.intent ?? null);
+        else if (ev === "final") final = payload as ChatResponse;
+        else if (ev === "error") throw new ApiError(payload.detail ?? "The request failed.", payload.error === "timeout" ? 504 : 500, true);
+      }
     }
+  } catch (e) {
+    if (e instanceof ApiError || (e as Error).name === "AbortError") throw e;
+    // A dropped connection mid-stream: the turn may still have completed on the server.
+    throw new ApiError("The connection was interrupted before the reply arrived.", 0, true);
   }
   if (!final) throw new ApiError("The connection closed before a reply arrived.", 0, true);
   return final;

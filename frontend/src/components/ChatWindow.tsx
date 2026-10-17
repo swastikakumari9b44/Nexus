@@ -31,7 +31,7 @@ export function ChatWindow({ messages, sending, loading, onSend, onCite }: Props
   useEffect(() => { stick.current = true; }, [loading]);
 
   if (loading) {
-    return <div className="flex flex-1 items-center justify-center text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Restoring conversation…</div>;
+    return <div className="flex flex-1 items-center justify-center text-sm text-slate-400"><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Restoring conversation…</div>;
   }
   if (messages.length === 0) {
     return (
@@ -47,7 +47,7 @@ export function ChatWindow({ messages, sending, loading, onSend, onCite }: Props
             </button>
             {SUGGESTIONS.map((s) => (
               <button key={s} onClick={() => onSend(s)} className="flex items-start gap-3 rounded-xl border border-ink-700 bg-ink-800 p-3 text-sm text-slate-300 transition hover:border-ink-600 hover:text-white">
-                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden /> {s}
+                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden /> {s}
               </button>
             ))}
           </div>
@@ -61,7 +61,7 @@ export function ChatWindow({ messages, sending, loading, onSend, onCite }: Props
         <div className="mx-auto max-w-3xl space-y-5">
           {messages.map((m) => <MessageBubble key={m.key} m={m} onCite={onCite} />)}
           {sending && (
-            <div className="flex items-center gap-2 pl-11 text-xs text-slate-500" aria-hidden>
+            <div className="flex items-center gap-2 pl-11 text-xs text-slate-400" aria-hidden>
               <span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500" style={{ animationDelay: `${i * 120}ms` }} />)}</span> NEXUS is working…
             </div>
           )}
