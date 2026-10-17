@@ -25,12 +25,16 @@ Q_START = re.compile(
     r"(what|when|where|who|whom|whose|why|how|which|is|are|does|do|did|can|could|should|will|would|"
     r"tell me|explain|describe|give me|list)\b", re.I)
 LEAK = re.compile(
-    r"(system prompt|your (instructions|prompt|rules)\b|ignore (all |any )?(the )?(previous|prior|above|earlier) "
-    r"(instructions|prompts|rules)|disregard (the )?(previous|above|system)|"
-    r"reveal .{0,40}(prompt|instruction|api[ _-]?key|secret|password|environment variable|env var)|"
-    r"(api[ _-]?key|environment variables?|\.env\b|secret key).{0,40}(show|print|reveal|tell|give|what|dump)|"
-    r"(show|print|reveal|tell|give|what|dump).{0,40}(api[ _-]?key|environment variables?|\.env\b|secret key)|"
-    r"you are now|developer mode|jailbreak|act as (?:an? )?(?:unrestricted|dan))", re.I)
+    r"(system prompt|developer message|hidden (?:instructions|prompt)|"
+    r"\byour (?:system |initial |hidden |original )?(?:instructions|prompt)\b|"
+    r"(?:ignore|disregard|forget) (?:all |any )?(?:the |your )?(?:previous|prior|above|earlier|system) "
+    r"(?:instructions|prompts|rules|messages)|"
+    r"\b(?:reveal|print|dump|leak|expose|output|repeat|show me|tell me|give me)\b.{0,30}\b(?:your|the|its)\b.{0,20}"
+    r"\b(?:system prompt|api[ _-]?keys?|secret keys?|secrets|credentials|env(?:ironment)? ?(?:vars|variables?)|\.env|configuration)\b|"
+    r"\b(?:your|the server'?s|the app'?s|the backend'?s)\s+(?:api[ _-]?keys?|secret keys?|environment variables?|credentials|\.env)\b|"
+    r"you are now (?:dan|an? unrestricted|in developer)|developer mode|jailbreak|act as (?:an? )?(?:unrestricted|dan)\b)",
+    re.I)
+LEADING = re.compile(r"^\s*(?:(?:sure|yes|yep|yeah|ok|okay|hi|hello|hey|thanks|thank you|please|great|alright|cool|right|well|um|so)\b[\s,.!:-]*)+", re.I)
 EMAIL_TOKEN = re.compile(r"[^\s<>()\[\],;]+@[^\s<>()\[\],;]+")
 NAME_FILLER = {"email", "e-mail", "mail", "is", "my", "at", "and", "hi", "hello", "hey", "name", "i", "am", "im",
                "the", "its", "it's", "this", "me", "please", "thanks", "thank", "you", "yes", "no", "ok", "okay"}
@@ -65,6 +69,7 @@ def _name_from_tokens(s: str, lo: int = 2) -> Optional[str]:
 
 
 def extract_name(text: str, email_raw: Optional[str], need_name: bool) -> Optional[str]:
+    text = LEADING.sub("", text.strip())          # "Sure, Alex Chen" -> "Alex Chen"
     m = re.search(r"(?i:my name is|name is|call me|name:)\s+([A-Za-z][A-Za-z.'\- ]{1,60})", text)
     if m:
         cand = re.split(r"(?i)\b(?:and|my|email|e-mail|at)\b|[,.(@]", m.group(1))[0].strip()
@@ -77,7 +82,7 @@ def extract_name(text: str, email_raw: Optional[str], need_name: bool) -> Option
         return _name_from_tokens(before) or _name_from_tokens(after)
     if need_name and not email_raw:
         t = text.strip()
-        if not YES.match(t) and not NO.match(t) and not is_booking_start(t):
+        if t and not NO.match(t) and not is_booking_start(t):
             return _name_from_tokens(t, lo=2)
     return None
 

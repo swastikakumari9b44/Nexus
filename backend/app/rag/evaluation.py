@@ -17,7 +17,7 @@ def _mrr(pages: list[int], expected: list[int]) -> float:
 
 
 async def evaluate(retriever: Retriever, answerer: Answerer, dataset_path: Path, k: int = 4) -> dict:
-    data = json.loads(Path(dataset_path).read_text())
+    data = json.loads(Path(dataset_path).read_text(encoding="utf-8"))
     rows, oos_rows = [], []
     for item in data["answerable"]:
         raw = retriever.search_raw(item["q"], k)

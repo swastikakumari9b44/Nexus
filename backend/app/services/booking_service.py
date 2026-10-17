@@ -239,6 +239,18 @@ class BookingService:
         finally:
             conn.close()
 
+    def find_by_key(self, thread_id: Optional[str], slot_id: str, email: str,
+                    appointment_type: str = APPOINTMENT_TYPE) -> Optional[Booking]:
+        """Look up the confirmed booking an identical earlier `book()` call would have created.
+        Used to recover when the outcome of a call is unknown (e.g. connection lost after COMMIT)."""
+        key = self.idempotency_key(thread_id, slot_id, email.strip().lower(), appointment_type)
+        conn = self._connect()
+        try:
+            r = conn.execute("SELECT * FROM bookings WHERE idempotency_key=? AND status='confirmed'", (key,)).fetchone()
+        finally:
+            conn.close()
+        return self._row(r) if r else None
+
     @staticmethod
     def _new_reference(conn: sqlite3.Connection) -> str:
         for _ in range(10):

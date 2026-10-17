@@ -1,6 +1,7 @@
 """RAG evaluation. Usage: python -m scripts.evaluate [--json out.json]"""
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from app.core.config import BACKEND_DIR, get_settings
@@ -11,6 +12,7 @@ from app.rag.retriever import Retriever
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")   # Windows consoles default to a legacy code page
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", help="write the full report to this path")
     ap.add_argument("--answerer", choices=["configured", "dev"], default="dev",
@@ -32,7 +34,7 @@ def main() -> None:
     for row in rep["out_of_scope_rows"]:
         print(f"  declined={int(row['correctly_declined'])} top1={row['top1_score']} (p{row['top1_page']})  {row['q']}")
     if a.json:
-        Path(a.json).write_text(json.dumps(rep, indent=2))
+        Path(a.json).write_text(json.dumps(rep, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

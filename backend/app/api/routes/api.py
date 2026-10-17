@@ -97,7 +97,18 @@ async def chat_stream(req: ChatRequest, request: Request):
                                    message_id=req.client_message_id, duplicate=True, ai=done).model_dump())
                         return
                 inputs, mid = _inputs(req)
-                async for update in c.graph.astream(inputs, cfg, stream_mode="updates"):
+                loop = asyncio.get_running_loop()
+                deadline = loop.time() + TURN_TIMEOUT_S
+                stream = c.graph.astream(inputs, cfg, stream_mode="updates").__aiter__()
+                while True:
+                    try:
+                        update = await asyncio.wait_for(stream.__anext__(), max(0.05, deadline - loop.time()))
+                    except StopAsyncIteration:
+                        break
+                    except asyncio.TimeoutError:
+                        yield _sse("error", {"error": "timeout", "detail": "The assistant took too long. "
+                                             "Please retry - retrying is safe and will not duplicate a booking."})
+                        return
                     for node, upd in update.items():
                         yield _sse("node", {"node": node, "intent": (upd or {}).get("intent")})
                 snap = await c.graph.aget_state(cfg)

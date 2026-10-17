@@ -133,6 +133,13 @@ def make_booking(deps: GraphDeps):
             say(f"{lead}Please confirm: **{APPOINTMENT_TYPE}** on **{slot.label}** for **{d['name']}** "
                 f"({d['email']}). Reply **yes** to confirm, or **no** to choose a different slot.")
 
+        def confirmed(b, created: bool):
+            d.update(status="confirmed", reference=b.reference, booking=asdict(b),
+                     offered_slot_ids=[], slot_id=b.slot_id)
+            extra = "" if created else " (This was already confirmed earlier - no duplicate was created.)"
+            say(f"Confirmed! Your {b.appointment_type} is scheduled for **{b.slot_label}** for "
+                f"{b.name}. Reference ID: **#{b.reference}**.{extra}")
+
         async def do_book():
             nonlocal error
             try:
@@ -147,19 +154,28 @@ def make_booking(deps: GraphDeps):
                 notes.append(str(e))
                 d["status"] = "collecting"
                 say("Please correct that and try again.")
-            except Exception as e:  # unexpected: nothing is marked booked
+            except Exception as e:  # outcome unknown: ask the database instead of guessing
                 log.exception("booking failed", extra={"ctx": {"err": type(e).__name__}})
-                d["status"], d["last_error"] = "awaiting_confirmation", "booking_failed"
-                error = "booking_failed"
-                say("Something went wrong on our side and your booking was **not** created. "
-                    "Reply **yes** to try again.")
+                try:
+                    found = await asyncio.to_thread(svc.find_by_key, thread_id, d["slot_id"], d["email"])
+                except Exception:
+                    found, verified = None, False
+                else:
+                    verified = True
+                if found:                       # the transaction had actually committed
+                    confirmed(found, created=False)
+                else:
+                    d["status"], d["last_error"] = "awaiting_confirmation", "booking_failed"
+                    error = "booking_failed"
+                    what = ("no booking has been recorded" if verified
+                            else "I couldn't verify whether your booking went through")
+                    say(f"Something went wrong and I couldn't confirm your booking - {what}. "
+                        "Reply **yes** to try again; retrying is safe and can't create a duplicate."
+                        if verified else
+                        f"Something went wrong and {what}. "
+                        "Reply **yes** to try again; retrying is safe and can't create a duplicate.")
             else:
-                b = res.booking
-                d.update(status="confirmed", reference=b.reference, booking=asdict(b),
-                         offered_slot_ids=[], slot_id=b.slot_id)
-                extra = "" if res.created else " (This was already confirmed earlier - no duplicate was created.)"
-                say(f"Confirmed! Your {b.appointment_type} is scheduled for **{b.slot_label}** for "
-                    f"{b.name}. Reference ID: **#{b.reference}**.{extra}")
+                confirmed(res.booking, res.created)
 
         # ---- stage 3: choose + confirm ----
         require = deps.settings.booking_require_confirmation

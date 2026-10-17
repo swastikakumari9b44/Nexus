@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from app.graph.deps import GraphDeps
@@ -17,12 +18,17 @@ def make_rag(deps: GraphDeps):
         trace = list(state.get("trace") or []) + ["rag"]
         base = {"trace": trace, "active_node": "rag"}
 
-        if not deps.retriever.is_ready():
+        if not await asyncio.to_thread(deps.retriever.is_ready):
             parts.append("The handbook knowledge base hasn't been indexed yet. "
                          "Run `python -m scripts.ingest --download` in the backend, then try again.")
             return {**base, "reply_parts": parts, "citations": [], "error": "index_not_ready"}
 
-        passages = await deps.retriever.asearch(question)
+        try:
+            passages = await deps.retriever.asearch(question)
+        except Exception as e:
+            log.warning("retrieval failed", extra={"ctx": {"err": type(e).__name__}})
+            parts.append("The handbook search is temporarily unavailable. Any booking progress is saved - please try again shortly.")
+            return {**base, "reply_parts": parts, "citations": [], "error": "retrieval_unavailable"}
         if not passages:
             parts.append(FALLBACK)
             return {**base, "reply_parts": parts, "citations": []}

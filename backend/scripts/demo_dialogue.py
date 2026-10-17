@@ -1,12 +1,14 @@
 """Replays the assessment's sample dialogue against a RUNNING backend and prints a transcript.
 Usage: python -m scripts.demo_dialogue [--base http://127.0.0.1:8000] [--restart-hint]"""
 import argparse
+import sys
 import uuid
 
 import httpx
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")   # slot labels contain a middle dot; Windows consoles may not
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8000")
     base = ap.parse_args().base

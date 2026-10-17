@@ -22,6 +22,60 @@ log = logging.getLogger("nexus")
 MAX_BODY_BYTES = 16 * 1024
 
 
+class _TooLarge(Exception):
+    pass
+
+
+class BodyLimitMiddleware:
+    """Enforces the body limit on the bytes actually received, so chunked uploads (no
+    Content-Length) can't bypass it. Rejects early via the header when one is present."""
+
+    def __init__(self, app, max_bytes: int):
+        self.app, self.max_bytes = app, max_bytes
+
+    async def _reject(self, send):
+        body = b'{"error":"payload_too_large","detail":"Request body too large"}'
+        await send({"type": "http.response.start", "status": 413,
+                    "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode()),
+                                (b"connection", b"close")]})
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        cl = dict(scope["headers"]).get(b"content-length")
+        if cl and cl.isdigit() and int(cl) > self.max_bytes:
+            return await self._reject(send)
+        total, started, rejected = 0, False, False
+
+        async def limited_receive():
+            nonlocal total, rejected
+            msg = await receive()
+            if msg["type"] == "http.request":
+                total += len(msg.get("body", b""))
+                if total > self.max_bytes and not rejected:
+                    # Answer 413 ourselves now: FastAPI turns exceptions raised while reading the
+                    # body into a generic 400, so raising alone would give the wrong status.
+                    rejected = True
+                    if not started:
+                        await self._reject(send)
+                    raise _TooLarge()
+            return msg
+
+        async def tracking_send(msg):
+            nonlocal started
+            if rejected:
+                return                       # response already sent; drop the framework's follow-up
+            if msg["type"] == "http.response.start":
+                started = True
+            await send(msg)
+
+        try:
+            await self.app(scope, limited_receive, tracking_send)
+        except _TooLarge:
+            pass
+
+
 def create_app(settings: Optional[Settings] = None, clock: Optional[Callable] = None,
                answerer: Optional[Answerer] = None) -> FastAPI:
     settings = settings or get_settings()
@@ -52,11 +106,10 @@ def create_app(settings: Optional[Settings] = None, clock: Optional[Callable] = 
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type"], allow_credentials=False)
 
+    app.add_middleware(BodyLimitMiddleware, max_bytes=MAX_BODY_BYTES)
+
     @app.middleware("http")
-    async def limit_body(request: Request, call_next):
-        cl = request.headers.get("content-length")
-        if cl and cl.isdigit() and int(cl) > MAX_BODY_BYTES:
-            return JSONResponse({"error": "payload_too_large", "detail": "Request body too large"}, status_code=413)
+    async def security_headers(request: Request, call_next):
         resp = await call_next(request)
         resp.headers["X-Content-Type-Options"] = "nosniff"
         return resp
