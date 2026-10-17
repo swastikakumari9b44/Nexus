@@ -183,7 +183,7 @@ async def test_backend_failure_never_reports_success_and_retry_works(env, monkey
     real = BookingService.book
     monkeypatch.setattr(BookingService, "book", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db down")))
     r = await c.say("yes")
-    assert r["booking"]["status"] == "awaiting_confirmation" and "not** created" in r["reply"]
+    assert r["booking"]["status"] == "awaiting_confirmation" and "no booking has been recorded" in r["reply"]
     assert r["booking"].get("reference") is None and r["error"] == "booking_failed"
     monkeypatch.setattr(BookingService, "book", real)
     r = await c.say("yes")
